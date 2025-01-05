@@ -69,3 +69,9 @@ Dual licensed under MIT or Apache 2.0.
 
 - [LICENSE-MIT](http://opensource.org/licenses/MIT)
 - [LICENSE-APACHE](http://www.apache.org/licenses/LICENSE-2.0)
+
+## Todo
+Currently this is a very simple plugin that just provides a resource exposing a catppuccin flavor.
+In the future following things should be possible
+- Official way to change flavor
+- Color transitions upon flavor change

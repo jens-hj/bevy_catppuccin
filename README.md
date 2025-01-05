@@ -23,10 +23,15 @@ fn main() {
 This adds a `CatppuccinTheme` resource to your app, which you can use to get catppuccin colors in your systems.
 
 ```rust
+use bevy::prelude::*;
 use bevy_catppuccin::CatppuccinTheme;
 
 // Accessing the theme via the resource
-fn system(commands: Commands, theme: Res<CatppuccinTheme>) {
+fn system(
+    commands: Commands,
+    theme: Res<CatppuccinTheme>,
+    asset_server: Res<AssetServer>
+) {
     println!("The lavender color is {:?}", theme.flavor.lavender);
 
     // Spawn a camera with the clear color set to the base color
@@ -38,12 +43,16 @@ fn system(commands: Commands, theme: Res<CatppuccinTheme>) {
         }
     );
 
+    // load sprites
+    let image_handle = asset_server.load("assets/image.png");
+
     // Spawn a sprite with the lavender color.
     // Note that if you wanna tint a sprite,
     // your base sprite should be white, in
     // order to get the expected color
     commands.spawn(
         Sprite {
+            image: image_handle,
             color: theme.flavor.lavender,
             ..default()
         },
@@ -54,6 +63,7 @@ fn system(commands: Commands, theme: Res<CatppuccinTheme>) {
 Or change the theme:
 
 ```rust
+use bevy::prelude::*;
 use bevy_catppuccin::{CatppuccinTheme, Flavor};
 
 fn setup(mut theme: ResMut<CatppuccinTheme>) {

@@ -13,96 +13,75 @@
     };
   };
 
-  outputs =
-    { self
-    , nixpkgs
-    , rust-overlay
-    , flake-utils
-    , ...
-    } @ inputs:
+  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }@inputs:
     flake-utils.lib.eachDefaultSystem (system:
-    let
-      overlays = [ (import rust-overlay) ];
-      pkgs = import inputs.nixpkgs { inherit system overlays; };
-      rust-extensions = [
-        "rust-src"
-        "rust-analyzer"
-        "llvm-tools-preview" # used with `cargo-pgo`
-      ];
-      rust-additional-targets = [ "wasm32-unknown-unknown" ];
+      let
+        overlays = [ (import rust-overlay) ];
+        pkgs = import inputs.nixpkgs { inherit system overlays; };
+        rust-extensions = [
+          "rust-src"
+          "rust-analyzer"
+          "llvm-tools-preview" # used with `cargo-pgo`
+        ];
+        rust-additional-targets = [ "wasm32-unknown-unknown" ];
 
-      bevy-deps = with pkgs; [
-        udev
-        alsa-lib
-        vulkan-loader
-        xorg.libX11
-        xorg.libXcursor
-        xorg.libXi
-        xorg.libXrandr
-        libxkbcommon
-        wayland
-        egl-wayland
-        freetype
-        fontconfig
-      ];
-      cargo-subcommands = with pkgs; [
-        cargo-bloat
-        cargo-expand
-        cargo-outdated
-        cargo-show-asm
-        cargo-make
-        cargo-modules
-        cargo-nextest
-        cargo-rr
-        cargo-udeps
-        cargo-watch
-        cargo-wizard
-        cargo-pgo
-        cargo-flamegraph
-        cargo-license
-        cargo-release
-      ];
-      rust-deps = with pkgs;
-        [
-          taplo # TOML formatter and LSP
-          bacon
-          mold # A Modern Linker
-          clang # For linking
-          trunk # rust wasm bundler
-          wasm-bindgen-cli
-          sass
-          tailwindcss
-        ]
-        ++ cargo-subcommands;
-      dev-deps = with pkgs; [
-        just
-        typos # spell checker
-        gh
-      ];
-    in
-    with pkgs; {
-      formatter.${system} = pkgs.alejandra;
-      devShells.default = pkgs.mkShell rec {
-        nativeBuildInputs = [ pkgs.pkg-config ];
-        buildInputs =
+        bevy-deps = with pkgs;
+          if stdenv.isDarwin then [
+            vulkan-loader
+            freetype
+            fontconfig
+          ] else [
+            udev
+            alsa-lib
+            vulkan-loader
+            xorg.libX11
+            xorg.libXcursor
+            xorg.libXi
+            xorg.libXrandr
+            libxkbcommon
+            wayland
+            egl-wayland
+            freetype
+            fontconfig
+          ];
+        cargo-subcommands = with pkgs; [ cargo-release ];
+        rust-deps = with pkgs;
           [
-            (
-              rust-bin.selectLatestNightlyWith (toolchain:
-                toolchain.default.override {
-                  extensions =
-                    rust-extensions
-                    ++ [
-                      "rustc-codegen-cranelift-preview"
-                    ];
-                  targets = [ "wasm32-unknown-unknown" ];
-                })
-            )
-          ]
-          ++ bevy-deps
-          ++ rust-deps
-          ++ dev-deps;
+            # rustup
+            taplo # TOML formatter and LSP
+            bacon
+            mold # A Modern Linker
+            clang # For linking
+            ra-multiplex
+            trunk # rust wasm bundler
+            openssl
+            gcc
+            gfortran
+            zlib
+          ] ++ cargo-subcommands;
+        dev-deps = with pkgs; [
+          just
+          typos # spell checker
+          act # run github actions local in a docker container
+          gh
+        ];
+      in with pkgs; {
+        formatter.${system} = pkgs.alejandra;
+        devShells.default = pkgs.mkShell rec {
+          nativeBuildInputs = [ pkgs.pkg-config ];
+          buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
+          ] ++ [
+            (rust-bin.selectLatestNightlyWith (toolchain:
+              toolchain.default.override {
+                extensions = rust-extensions
+                  ++ [ "rustc-codegen-cranelift-preview" ];
+                targets = [ "wasm32-unknown-unknown" ];
+              }))
+          ] ++ bevy-deps ++ rust-deps ++ dev-deps;
 
-        LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
-      };
-    });
+          LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
+        };
+      });
 }

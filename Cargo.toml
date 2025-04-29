@@ -7,7 +7,7 @@ authors = ["Avianastra <avianastra@gmail.com>"]
 rust-version = "1.85"
 
 [dependencies]
-bevy = { version = "0.15", default-features = true, features = ["wayland"] }
+bevy = { version = "0.16", default-features = true }
 
 [workspace.lints.rust]
 unsafe_code                   = "forbid"

@@ -1,87 +1,48 @@
 {
-  description = "vienas";
+  description = "bevy-catppuccin";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "flake-utils";
-      };
-    };
+    rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
-  outputs = { self, nixpkgs, rust-overlay, flake-utils, ... }@inputs:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        overlays = [ (import rust-overlay) ];
-        pkgs = import inputs.nixpkgs { inherit system overlays; };
-        rust-extensions = [
-          "rust-src"
-          "rust-analyzer"
-          "llvm-tools-preview" # used with `cargo-pgo`
-        ];
-        rust-additional-targets = [ "wasm32-unknown-unknown" ];
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    rust-overlay,
+  }:
+    flake-utils.lib.eachDefaultSystem (system: let
+      overlays = [(import rust-overlay)];
+      pkgs = import nixpkgs {inherit system overlays;};
 
-        bevy-deps = with pkgs;
-          if stdenv.isDarwin then [
-            vulkan-loader
-            freetype
-            fontconfig
-          ] else [
-            udev
-            alsa-lib
-            vulkan-loader
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXi
-            xorg.libXrandr
-            libxkbcommon
-            wayland
-            egl-wayland
-            freetype
-            fontconfig
-          ];
-        cargo-subcommands = with pkgs; [ cargo-release ];
-        rust-deps = with pkgs;
-          [
-            # rustup
-            taplo # TOML formatter and LSP
-            bacon
-            mold # A Modern Linker
-            clang # For linking
-            ra-multiplex
-            trunk # rust wasm bundler
-            openssl
-            gcc
-            gfortran
-            zlib
-          ] ++ cargo-subcommands;
-        dev-deps = with pkgs; [
-          just
-          typos # spell checker
-          act # run github actions local in a docker container
-          gh
-        ];
-      in with pkgs; {
-        formatter.${system} = pkgs.alejandra;
-        devShells.default = pkgs.mkShell rec {
-          nativeBuildInputs = [ pkgs.pkg-config ];
-          buildInputs = pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            pkgs.darwin.apple_sdk.frameworks.CoreFoundation
-          ] ++ [
-            (rust-bin.selectLatestNightlyWith (toolchain:
-              toolchain.default.override {
-                extensions = rust-extensions
-                  ++ [ "rustc-codegen-cranelift-preview" ];
-                targets = [ "wasm32-unknown-unknown" ];
-              }))
-          ] ++ bevy-deps ++ rust-deps ++ dev-deps;
+      rust = pkgs.rust-bin.stable.latest.default;
 
-          LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
-        };
-      });
+      bevyDeps =
+        if pkgs.stdenv.isDarwin
+        then [
+          pkgs.freetype
+          pkgs.fontconfig
+          pkgs.vulkan-loader
+        ]
+        else [
+          pkgs.udev
+          pkgs.alsa-lib
+          pkgs.vulkan-loader
+          pkgs.xorg.libX11
+          pkgs.xorg.libXcursor
+          pkgs.xorg.libXi
+          pkgs.xorg.libXrandr
+          pkgs.libxkbcommon
+          pkgs.wayland
+          pkgs.egl-wayland
+          pkgs.freetype
+          pkgs.fontconfig
+        ];
+    in {
+      devShells.default = pkgs.mkShell {
+        buildInputs = [rust] ++ bevyDeps;
+      };
+    });
 }
